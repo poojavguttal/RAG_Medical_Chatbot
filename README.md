@@ -1,6 +1,6 @@
 # RAG_Medical_Chatbot
 
-## 🚀 Usage
+## Usage
 
 1. **Ingest & index** your MedQuAD CSV
 
@@ -25,7 +25,7 @@
 
 ---
 
-## 🔧 Configuration
+## Configuration
 
 Both scripts accept these flags (see `--help` for full list):
 
