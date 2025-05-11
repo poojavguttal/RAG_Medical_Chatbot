@@ -28,34 +28,53 @@ function App() {
   
   
 
-  const handleSendMessage = (text) => {
+  const handleSendMessage = async (text) => {
     const userMessage = { sender: 'user', text };
-    const botMessage = { sender: 'bot', text: `You said: ${text}` };
-    const updatedMessages = [...activeMessages, userMessage, botMessage];
+    
+    // Show user message + loading message
+    const interimMessages = [...activeMessages, userMessage, { sender: 'bot', text: 'Typing...' }];
+    setActiveMessages(interimMessages);
   
-    // ✅ If no chat exists yet, create one automatically
-    if (currentChatIndex === null) {
-      const newChat = {
-        title: text, // use first message as title
-        messages: updatedMessages,
-      };
-      const updatedChats = [...chats, newChat];
-      setChats(updatedChats);
-      setCurrentChatIndex(updatedChats.length - 1);
-    } else {
-      // ✅ Update existing chat title and messages
+    try {
+      const response = await fetch("https://2c33-34-125-135-95.ngrok-free.app/api/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: text }),
+      });
+  
+      const data = await response.json();
+      const botMessage = { sender: 'bot', text: data.answer || "No answer returned." };
+  
+      // Remove the 'Typing...' placeholder
+      const interim = [...interimMessages];
+      interim.pop(); // remove 'Typing...'
+      const updatedMessages = [...interim, botMessage];
+  
+      // Update chat
       const updatedChats = [...chats];
-      
-      if (text && updatedChats[currentChatIndex]?.title === "New Chat") {
-        updatedChats[currentChatIndex].title = text;
+      if (currentChatIndex === null) {
+        const newChat = { title: text, messages: updatedMessages };
+        updatedChats.push(newChat);
+        setChats(updatedChats);
+        setCurrentChatIndex(updatedChats.length - 1);
+      } else {
+        if (text && updatedChats[currentChatIndex]?.title === "New Chat") {
+          updatedChats[currentChatIndex].title = text;
+        }
+        updatedChats[currentChatIndex].messages = updatedMessages;
+        setChats(updatedChats);
       }
   
-      updatedChats[currentChatIndex].messages = updatedMessages;
-      setChats(updatedChats);
+      setActiveMessages(updatedMessages);
+    } catch (error) {
+      console.error("Error fetching:", error);
+      const interim = [...interimMessages];
+      interim.pop(); // remove 'Typing...'
+      const updatedMessages = [...interim, { sender: 'bot', text: '⚠️ Server error. Try again.' }];
+      setActiveMessages(updatedMessages);
     }
-  
-    setActiveMessages(updatedMessages);
   };
+  
   
   return (
     <div className="App">
