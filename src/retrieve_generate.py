@@ -59,43 +59,55 @@ def embed_query(text: str, tokenizer: AutoTokenizer, model: AutoModel, device: t
 
 def main():
     parser = argparse.ArgumentParser("RAG Retrieval + Llama-2 Generation")
-    parser.add_argument("--csv_path",    "-c", required=True, help="Your consolidated CSV")
-    parser.add_argument("--index_dir",   "-i", default="index_data", help="Where ingest.py saved faiss.index + metadata.pkl")
-    parser.add_argument("--embed_model", "-e", default="microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract",
+    parser.add_argument("--csv_path",    "-c", required=True,
+                        help="Your consolidated CSV file")
+    parser.add_argument("--index_dir",   "-i", default="index_data",
+                        help="Where ingest.py saved faiss.index + metadata.pkl")
+    parser.add_argument("--embed_model", "-e",
+                        default="microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract",
                         help="HuggingFace PubMedBERT model for embeddings")
-    parser.add_argument("--llm_model",   "-l", default="meta-llama/Llama-2-7b-chat-hf",
+    parser.add_argument("--llm_model",   "-l",
+                        default="meta-llama/Llama-2-7b-chat-hf",
                         help="HuggingFace Llama-2 chat model")
-    parser.add_argument("--chunk_size",  type=int, default=200, help="Must match ingest.py")
-    parser.add_argument("--overlap",     type=int, default=50,  help="Must match ingest.py")
-    parser.add_argument("--top_k",       type=int, default=5,   help="How many chunks to retrieve")
-    parser.add_argument("--query",       "-q", required=True,   help="Your question")
-    parser.add_argument("--max_new_tokens", type=int, default=512, help="Generation length")
-    parser.add_argument("--hf_token", help="hugging face token error")
-    args = parser.parse_args
+    parser.add_argument("--chunk_size",  type=int, default=200,
+                        help="Must match ingest.py")
+    parser.add_argument("--overlap",     type=int, default=50,
+                        help="Must match ingest.py")
+    parser.add_argument("--top_k",       type=int, default=5,
+                        help="How many chunks to retrieve")
+    parser.add_argument("--query",       "-q", required=True,
+                        help="Your question")
+    parser.add_argument("--max_new_tokens", type=int, default=512,
+                        help="Generation length")
+    parser.add_argument("--hf_token",
+                        help="Hugging Face API token")
+    args = parser.parse_args()
 
-    login(token=args.hf_token)
+    # if provided, log in to HF to access private models
+    if args.hf_token:
+        login(token=args.hf_token)
 
-    # 1) Loading FAISS index + metadata
+    # 1) Load FAISS index + metadata
     idx = faiss.read_index(os.path.join(args.index_dir, "faiss.index"))
     with open(os.path.join(args.index_dir, "metadata.pkl"), "rb") as f:
         chunk_metas = pickle.load(f)
 
-    # 2) Re-loading csv file & re-chunk docs to recover chunk texts based on the faiss index we get from above(same order as ingest.py)
-    docs, base_metas = load_data(args.csv_path)
+    # 2) Reload & re-chunk docs
+    docs, _ = load_data(args.csv_path)
     all_chunks = []
     for doc_text in docs:
         all_chunks.extend(chunk_text(doc_text, args.chunk_size, args.overlap))
 
-    # 3) Preparing embed model for retrieval
+    # 3) Prepare embed model
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     embed_tokenizer = AutoTokenizer.from_pretrained(args.embed_model)
     embed_model     = AutoModel.from_pretrained(args.embed_model).to(device)
 
-    # 4) Embeding the query and searching
+    # 4) Embed query & search
     q_vec = embed_query(args.query, embed_tokenizer, embed_model, device)
     distances, indices = idx.search(q_vec, args.top_k)
 
-    # 5) Gathering retrieved context
+    # 5) Collect retrieved chunks
     retrieved = []
     for dist, idx_ in zip(distances[0], indices[0]):
         retrieved.append({
@@ -104,7 +116,7 @@ def main():
             "text":  all_chunks[idx_],
         })
 
-    # 6) Building prompt for Llama-2 chat
+    # 6) Build prompt
     context = "\n\n".join(
         f"[{i+1}] Source: {r['meta']['source']} | Text: {r['text']}"
         for i, r in enumerate(retrieved)
@@ -120,18 +132,24 @@ def main():
         f"Answer:"
     )
 
-    # 7) Loading Llama-2 chat model (4-bit quantized) for generation
-    bnb_config = BitsAndBytesConfig(load_in_4bit=True)
+    # 7) Load & quantize Llama-2 chat model
+    bnb_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        llm_int8_enable_fp32_cpu_offload=True,
+    )
     llm_tokenizer = AutoTokenizer.from_pretrained(
-        args.llm_model, use_fast=True, use_auth_token=True
+        args.llm_model,
+        use_fast=True,
+        use_auth_token=args.hf_token
     )
     llm_model = AutoModelForCausalLM.from_pretrained(
         args.llm_model,
-        device_map="auto",
         quantization_config=bnb_config,
-    )
+        device_map="auto",
+        use_auth_token=args.hf_token
+    ).eval()
 
-    # 8) Tokenizing & generating the answer
+    # 8) Tokenize & generate
     inputs = llm_tokenizer(user_prompt, return_tensors="pt").to(llm_model.device)
     output_ids = llm_model.generate(
         **inputs,
@@ -143,7 +161,7 @@ def main():
     )
     answer = llm_tokenizer.decode(output_ids[0], skip_special_tokens=True)
 
-    # 9) Printing out the answer + options for inspection
+    # 9) Display results
     print("\n=== Retrieved Contexts ===")
     for r in retrieved:
         print(f"• (score={r['score']:.4f}) {r['text'][:200]}…\n")
