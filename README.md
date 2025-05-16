@@ -27,7 +27,6 @@ It uses Retrieval-Augmented Generation (RAG) with biomedical data and Google Gem
 
 ```bash
 git clone https://github.com/poojavguttal/RAG_Medical_Chatbot.git
-cd factmed-ai
 ```
 
 
@@ -47,7 +46,7 @@ fetch("https://<your-ngrok-url>.ngrok-free.app/api/ask", {...})
 #### 2. Frontend (React)
 
 ```bash
-cd frontend
+cd cd factmed-ai-frontend
 npm install
 npm start
 ```
