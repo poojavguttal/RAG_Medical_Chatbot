@@ -26,7 +26,7 @@ It uses Retrieval-Augmented Generation (RAG) with biomedical data and Google Gem
 #### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/poojavguttal/factmed-ai.git
+git clone https://github.com/poojavguttal/RAG_Medical_Chatbot.git
 cd factmed-ai
 ```
 
