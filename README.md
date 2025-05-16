@@ -9,7 +9,6 @@ It uses Retrieval-Augmented Generation (RAG) with biomedical data and Google Gem
 * Chat interface with conversation history
 * Medical answers generated using Gemini (Google GenAI)
 * FAISS-based semantic search over biomedical data
-* Real-time interaction via ngrok or local hosting
 
 ---
 
