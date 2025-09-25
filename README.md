@@ -1,8 +1,6 @@
 # RAG_Medical_Chatbot
 
-FactMed.AI is an interactive medical assistant built using React (frontend) and Flask (backend).
-It uses Retrieval-Augmented Generation (RAG) with biomedical data and Google Gemini API to provide accurate, context-aware answers.
-
+FactMed.AI is an interactive medical assistant built with a React frontend and RAG (Retrieval Augmented Generation) based backend, designed to provide accurate, context aware healthcare information. It incorporates Retrieval Augmented Generation (RAG) over trusted biomedical over the MedQuAD datasets (GitHub) and integrates the Google Gemini API to reduce hallucinations and ensure reliability. The system addresses the challenge of inconsistent and misleading medical information available online by grounding responses in verified sources. FactMed.AI enhances accessibility, helping patients, caregivers, and professionals obtain reliable medical insights quickly and effectively
 ---
 ### ✅ Features:
 
